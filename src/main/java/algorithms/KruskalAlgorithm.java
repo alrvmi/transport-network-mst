@@ -3,88 +3,89 @@ package algorithms;
 import graph.Edge;
 import graph.Graph;
 import models.MSTResult;
-
 import java.util.*;
 
 public class KruskalAlgorithm {
-    private long operationCount = 0;
+    private long operationsCount = 0;
 
-    // Union-Find (Disjoint Set Union) data structure
     private static class UnionFind {
-        private final int[] parent;
-        private final int[] rank;
+        private final Map<String, String> parent;
+        private final Map<String, Integer> rank;
 
-        public UnionFind(int size) {
-            parent = new int[size];
-            rank = new int[size];
-            for (int i = 0; i < size; i++) {
-                parent[i] = i;
-                rank[i] = 0;
+        public UnionFind(List<String> nodes) {
+            parent = new HashMap<>();
+            rank = new HashMap<>();
+
+            for (String node : nodes) {
+                parent.put(node, node);
+                rank.put(node, 0);
             }
         }
 
-        public int find(int x) {
-            if (parent[x] != x) {
-                parent[x] = find(parent[x]); // Path compression
+        public String find(String x) {
+            if (!parent.get(x).equals(x)) {
+                parent.put(x, find(parent.get(x)));
             }
-            return parent[x];
+            return parent.get(x);
         }
 
-        public boolean union(int x, int y) {
-            int rootX = find(x);
-            int rootY = find(y);
+        public boolean union(String x, String y) {
+            String rootX = find(x);
+            String rootY = find(y);
 
-            if (rootX == rootY) {
-                return false; // Already in same set
+            if (rootX.equals(rootY)) {
+                return false;
             }
 
-            // Union by rank
-            if (rank[rootX] < rank[rootY]) {
-                parent[rootX] = rootY;
-            } else if (rank[rootX] > rank[rootY]) {
-                parent[rootY] = rootX;
+            int rankX = rank.get(rootX);
+            int rankY = rank.get(rootY);
+
+            if (rankX < rankY) {
+                parent.put(rootX, rootY);
+            } else if (rankX > rankY) {
+                parent.put(rootY, rootX);
             } else {
-                parent[rootY] = rootX;
-                rank[rootX]++;
+                parent.put(rootY, rootX);
+                rank.put(rootX, rankX + 1);
             }
             return true;
         }
     }
 
     public MSTResult findMST(Graph graph) {
-        operationCount = 0;
+        operationsCount = 0;
         long startTime = System.nanoTime();
 
-        int vertices = graph.getVertices();
+        List<String> nodes = graph.getNodes();
+        int vertexCount = nodes.size();
 
-        if (vertices == 0) {
-            return createEmptyResult(startTime);
+        if (vertexCount == 0) {
+            return createEmptyResult(startTime, graph);
         }
 
-        // Get all edges and sort by weight
         List<Edge> edges = new ArrayList<>(graph.getAllEdges());
-        Collections.sort(edges); // Uses Edge's compareTo method
-        operationCount += edges.size() * Math.log(edges.size()); // Approximate sort operations
+        edges = mergeSort(edges);
+        operationsCount += (long) (edges.size() * Math.log(edges.size()) / Math.log(2));
 
-        UnionFind uf = new UnionFind(vertices);
+        UnionFind uf = new UnionFind(nodes);
+
         List<Edge> mstEdges = new ArrayList<>();
         int totalCost = 0;
 
-        // Process edges in order of weight
         for (Edge edge : edges) {
-            operationCount++; // Comparison/processing operation
+            operationsCount++;
 
-            int source = edge.getSource();
-            int destination = edge.getDestination();
+            String from = edge.getFrom();
+            String to = edge.getTo();
 
-            // Check if adding this edge creates a cycle
-            if (uf.union(source, destination)) {
+            operationsCount += 2;
+
+            if (uf.union(from, to)) {
                 mstEdges.add(edge);
                 totalCost += edge.getWeight();
-                operationCount += 2; // Union operations (find + union)
+                operationsCount++;
 
-                // MST complete when we have V-1 edges
-                if (mstEdges.size() == vertices - 1) {
+                if (mstEdges.size() == vertexCount - 1) {
                     break;
                 }
             }
@@ -93,14 +94,43 @@ public class KruskalAlgorithm {
         long endTime = System.nanoTime();
         double executionTimeMs = (endTime - startTime) / 1_000_000.0;
 
-        return new MSTResult("Kruskal's Algorithm", mstEdges, totalCost,
-                vertices, graph.getEdgeCount(), operationCount, executionTimeMs);
+        return new MSTResult("Kruskal", mstEdges, totalCost, vertexCount,
+                graph.getEdgeCount(), operationsCount, executionTimeMs);
     }
 
-    private MSTResult createEmptyResult(long startTime) {
+    private List<Edge> mergeSort(List<Edge> edges) {
+        if (edges.size() <= 1) {
+            return edges;
+        }
+
+        int mid = edges.size() / 2;
+        List<Edge> left = mergeSort(new ArrayList<>(edges.subList(0, mid)));
+        List<Edge> right = mergeSort(new ArrayList<>(edges.subList(mid, edges.size())));
+
+        return merge(left, right);
+    }
+
+    private List<Edge> merge(List<Edge> left, List<Edge> right) {
+        List<Edge> result = new ArrayList<>();
+        int i = 0, j = 0;
+
+        while (i < left.size() && j < right.size()) {
+            if (left.get(i).compareTo(right.get(j)) <= 0) {
+                result.add(left.get(i++));
+            } else {
+                result.add(right.get(j++));
+            }
+        }
+
+        while (i < left.size()) result.add(left.get(i++));
+        while (j < right.size()) result.add(right.get(j++));
+
+        return result;
+    }
+
+    private MSTResult createEmptyResult(long startTime, Graph graph) {
         long endTime = System.nanoTime();
         double executionTimeMs = (endTime - startTime) / 1_000_000.0;
-        return new MSTResult("Kruskal's Algorithm", new ArrayList<>(), 0,
-                0, 0, 0, executionTimeMs);
+        return new MSTResult("Kruskal", new ArrayList<>(), 0, 0, 0, 0, executionTimeMs);
     }
 }
