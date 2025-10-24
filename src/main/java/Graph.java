@@ -3,80 +3,85 @@ package graph;
 import java.util.*;
 
 public class Graph {
-    private final int vertices;
+    private final List<String> nodes;
+    private final Map<String, Integer> nodeToIndex;
     private final List<List<Edge>> adjacencyList;
     private final List<Edge> allEdges;
 
-    public Graph(int vertices) {
-        this.vertices = vertices;
-        this.adjacencyList = new ArrayList<>(vertices);
+    public Graph(List<String> nodes) {
+        this.nodes = new ArrayList<>(nodes);
+        this.nodeToIndex = new HashMap<>();
+        this.adjacencyList = new ArrayList<>();
         this.allEdges = new ArrayList<>();
 
-        for (int i = 0; i < vertices; i++) {
+        for (int i = 0; i < nodes.size(); i++) {
+            String node = nodes.get(i);
+            nodeToIndex.put(node, i);
             adjacencyList.add(new ArrayList<>());
         }
     }
 
-    public void addEdge(int source, int destination, int weight) {
-        if (source < 0 || source >= vertices || destination < 0 || destination >= vertices) {
-            throw new IllegalArgumentException("Invalid vertex index");
+    public void addEdge(String from, String to, int weight) {
+        if (!nodeToIndex.containsKey(from) || !nodeToIndex.containsKey(to)) {
+            throw new IllegalArgumentException("Invalid node: " + from + " or " + to);
         }
 
-        Edge edge = new Edge(source, destination, weight);
-        adjacencyList.get(source).add(edge);
-        adjacencyList.get(destination).add(new Edge(destination, source, weight));
+        Edge edge = new Edge(from, to, weight);
+        Edge reverseEdge = new Edge(to, from, weight);
 
-        // Store only one instance for undirected graph
-        if (source <= destination) {
-            allEdges.add(edge);
-        }
+        int fromIdx = nodeToIndex.get(from);
+        int toIdx = nodeToIndex.get(to);
+
+        adjacencyList.get(fromIdx).add(edge);
+        adjacencyList.get(toIdx).add(reverseEdge);
+
+        allEdges.add(edge);
     }
 
-    public int getVertices() {
-        return vertices;
-    }
-
-    public List<Edge> getEdges(int vertex) {
-        return adjacencyList.get(vertex);
-    }
-
-    public List<Edge> getAllEdges() {
-        return new ArrayList<>(allEdges);
+    public int getVertexCount() {
+        return nodes.size();
     }
 
     public int getEdgeCount() {
         return allEdges.size();
     }
 
-    public boolean isConnected() {
-        if (vertices == 0) return true;
-
-        boolean[] visited = new boolean[vertices];
-        dfs(0, visited);
-
-        for (boolean v : visited) {
-            if (!v) return false;
-        }
-        return true;
+    public List<String> getNodes() {
+        return new ArrayList<>(nodes);
     }
 
-    private void dfs(int vertex, boolean[] visited) {
-        visited[vertex] = true;
-        for (Edge edge : adjacencyList.get(vertex)) {
-            if (!visited[edge.getDestination()]) {
-                dfs(edge.getDestination(), visited);
+    public List<Edge> getEdges(String node) {
+        Integer index = nodeToIndex.get(node);
+        if (index == null) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(adjacencyList.get(index));
+    }
+
+    public List<Edge> getAllEdges() {
+        return new ArrayList<>(allEdges);
+    }
+
+    public boolean isConnected() {
+        if (nodes.isEmpty()) return true;
+
+        Set<String> visited = new HashSet<>();
+        dfs(nodes.get(0), visited);
+
+        return visited.size() == nodes.size();
+    }
+
+    private void dfs(String node, Set<String> visited) {
+        visited.add(node);
+        for (Edge edge : getEdges(node)) {
+            if (!visited.contains(edge.getTo())) {
+                dfs(edge.getTo(), visited);
             }
         }
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Graph with ").append(vertices).append(" vertices and ")
-                .append(allEdges.size()).append(" edges:\n");
-        for (Edge edge : allEdges) {
-            sb.append(edge).append("\n");
-        }
-        return sb.toString();
+        return String.format("Graph{vertices=%d, edges=%d}", nodes.size(), allEdges.size());
     }
 }
