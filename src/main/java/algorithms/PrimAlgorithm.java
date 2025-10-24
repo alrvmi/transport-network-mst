@@ -3,67 +3,66 @@ package algorithms;
 import graph.Edge;
 import graph.Graph;
 import models.MSTResult;
-
 import java.util.*;
 
 public class PrimAlgorithm {
-    private long operationCount = 0;
+    private long operationsCount = 0;
 
     public MSTResult findMST(Graph graph) {
-        operationCount = 0;
+        operationsCount = 0;
         long startTime = System.nanoTime();
 
-        int vertices = graph.getVertices();
+        List<String> nodes = graph.getNodes();
+        int vertexCount = nodes.size();
 
-        // Handle edge cases
-        if (vertices == 0) {
-            return createEmptyResult(startTime);
+        if (vertexCount == 0) {
+            return createEmptyResult(startTime, graph);
         }
 
-        boolean[] inMST = new boolean[vertices];
-        int[] key = new int[vertices];
-        int[] parent = new int[vertices];
+        Set<String> inMST = new HashSet<>();
+        Map<String, Integer> key = new HashMap<>();
+        Map<String, String> parent = new HashMap<>();
 
-        Arrays.fill(key, Integer.MAX_VALUE);
-        Arrays.fill(parent, -1);
+        for (String node : nodes) {
+            key.put(node, Integer.MAX_VALUE);
+        }
 
-        // Priority queue: [vertex, key_value]
-        PriorityQueue<int[]> pq = new PriorityQueue<>(Comparator.comparingInt(a -> a[1]));
+        PriorityQueue<NodeKey> pq = new PriorityQueue<>();
 
-        // Start from vertex 0
-        key[0] = 0;
-        pq.offer(new int[]{0, 0});
+        String startNode = nodes.get(0);
+        key.put(startNode, 0);
+        pq.offer(new NodeKey(startNode, 0));
 
         List<Edge> mstEdges = new ArrayList<>();
         int totalCost = 0;
 
         while (!pq.isEmpty()) {
-            int[] current = pq.poll();
-            int u = current[0];
-            operationCount++; // Poll operation
+            NodeKey current = pq.poll();
+            String u = current.node;
+            operationsCount++;
 
-            if (inMST[u]) continue;
-
-            inMST[u] = true;
-
-            // Add edge to MST (except for starting vertex)
-            if (parent[u] != -1) {
-                Edge edge = new Edge(parent[u], u, key[u]);
-                mstEdges.add(edge);
-                totalCost += key[u];
+            if (inMST.contains(u)) {
+                continue;
             }
 
-            // Update keys of adjacent vertices
-            for (Edge edge : graph.getEdges(u)) {
-                int v = edge.getDestination();
-                int weight = edge.getWeight();
-                operationCount++; // Comparison operation
+            inMST.add(u);
 
-                if (!inMST[v] && weight < key[v]) {
-                    key[v] = weight;
-                    parent[v] = u;
-                    pq.offer(new int[]{v, key[v]});
-                    operationCount++; // Priority queue insertion
+            if (parent.containsKey(u)) {
+                Edge mstEdge = new Edge(parent.get(u), u, key.get(u));
+                mstEdges.add(mstEdge);
+                totalCost += key.get(u);
+            }
+
+            for (Edge edge : graph.getEdges(u)) {
+                String v = edge.getTo();
+                int weight = edge.getWeight();
+                operationsCount++;
+
+                if (!inMST.contains(v) && weight < key.get(v)) {
+                    key.put(v, weight);
+                    parent.put(v, u);
+                    pq.offer(new NodeKey(v, weight));
+                    operationsCount++;
                 }
             }
         }
@@ -71,14 +70,28 @@ public class PrimAlgorithm {
         long endTime = System.nanoTime();
         double executionTimeMs = (endTime - startTime) / 1_000_000.0;
 
-        return new MSTResult("Prim's Algorithm", mstEdges, totalCost,
-                vertices, graph.getEdgeCount(), operationCount, executionTimeMs);
+        return new MSTResult("Prim", mstEdges, totalCost, vertexCount,
+                graph.getEdgeCount(), operationsCount, executionTimeMs);
     }
 
-    private MSTResult createEmptyResult(long startTime) {
+    private MSTResult createEmptyResult(long startTime, Graph graph) {
         long endTime = System.nanoTime();
         double executionTimeMs = (endTime - startTime) / 1_000_000.0;
-        return new MSTResult("Prim's Algorithm", new ArrayList<>(), 0,
-                0, 0, 0, executionTimeMs);
+        return new MSTResult("Prim", new ArrayList<>(), 0, 0, 0, 0, executionTimeMs);
+    }
+
+    private static class NodeKey implements Comparable<NodeKey> {
+        String node;
+        int key;
+
+        NodeKey(String node, int key) {
+            this.node = node;
+            this.key = key;
+        }
+
+        @Override
+        public int compareTo(NodeKey other) {
+            return Integer.compare(this.key, other.key);
+        }
     }
 }
